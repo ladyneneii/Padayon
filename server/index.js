@@ -24,6 +24,8 @@ io.on("connection", (socket) => {
 
   socket.on("send_message", (data) => {
     console.log(data);
+    // .to(data.room) means only the users in the same room can receive the message
+    socket.to(data.room).emit("receive_message", data)
   })
 
   socket.on("disconnect", () => {
