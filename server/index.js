@@ -65,8 +65,31 @@ app.get("/api/users", (req, res) => {
     if (err) throw err;
     console.log(`connected as id ${connection.threadId}`);
 
-    // query(sqlString, callback)
     connection.query("SELECT * FROM users", (err, rows) => {
+      connection.release(); // return the connection to pool
+
+      if (!err) {
+        res.send(rows);
+      } else {
+        console.log(err);
+      }
+    });
+  });
+});
+
+// Retrieve user with inputted email and password
+app.get("/api/users/:emailPass", (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    console.log(`connected as id ${connection.threadId}`);
+
+    const emailPass = req.params.emailPass.split(",");
+    const email = emailPass[0];
+    const pwd = emailPass[1];
+
+    console.log(`The email and password are ${email} and ${pwd}`);
+
+    connection.query("SELECT * FROM users WHERE Email = ? AND Password = ?", [email, pwd], (err, rows) => {
       connection.release(); // return the connection to pool
 
       if (!err) {
