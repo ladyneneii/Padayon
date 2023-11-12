@@ -93,7 +93,13 @@ app.get("/api/users/:emailPass", (req, res) => {
       connection.release(); // return the connection to pool
 
       if (!err) {
-        res.send(rows);
+        if (rows.length === 0) {
+          // No user found with the specified email and password
+          res.status(404).send("User not found");
+        } else {
+          // User found, send the user data
+          res.send(rows);
+        }
       } else {
         console.log(err);
       }
