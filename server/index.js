@@ -3,7 +3,6 @@ const app = express();
 const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
-const bodyParser = require("body-parser");
 const multer = require("multer");
 const mysql = require("mysql2");
 app.use(cors());
@@ -42,13 +41,12 @@ server.listen(port, () => {
 });
 
 app.use(express.static("../client")); // This directs it to the index.html file in the client folder
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Use multer to handle file uploads
 const upload = multer();
 
-// bodyParser
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
 
 // MySQL
 const pool = mysql.createPool({
@@ -172,5 +170,68 @@ app.post("/api/users", upload.single("avatar_url"), (req, res) => {
     });
 
     console.log(req.body);
+  });
+});
+
+// Add or update a room
+app.put("/api/rooms", upload.single("avatar_url"), (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    console.log(`connected as id ${connection.threadId}`);
+    console.log("This is req.body", req.body);
+    const params = req.body;
+
+    connection.query(
+      "SELECT * FROM rooms WHERE Title = ? AND Password = ?",
+      [params.Title, params.Password],
+      (err, rows) => {
+        connection.release(); // return the connection to pool
+
+        if (!err) {
+          if (rows.length === 0) {
+            console.log("NEW ROOM");
+            console.log("This is params", params);
+            connection.query("INSERT INTO rooms SET ?", params, (err, rows) => {
+              connection.release(); // return the connection to pool
+
+              if (!err) {
+                res.send(`Room ${params.Title} has been added.`);
+              } else {
+                console.log(err);
+              }
+            });
+          } else {
+            const existingMembers = rows[0].Members;
+
+            // Check if params.Members already exists in the existingMembers string
+            if (!existingMembers.includes(params.Members)) {
+              // If it doesn't exist, update the 'Members' column
+              connection.query(
+                "UPDATE rooms SET Members = CONCAT_WS(', ', Members, ?) WHERE Title = ? AND Password = ?",
+                [params.Members, params.Title, params.Password],
+                (err, rows) => {
+                  connection.release(); // return the connection to the pool
+
+                  if (!err) {
+                    res.send(
+                      `Room with the Title: ${params.Title} has been updated.`
+                    );
+                  } else {
+                    console.log(err);
+                  }
+                }
+              );
+            } else {
+              // If params.Members already exists, you may want to handle this case accordingly
+              res.send(
+                `Room with the Title: ${params.Title} is already associated with ${params.Members}.`
+              );
+            }
+          }
+        } else {
+          console.log(err);
+        }
+      }
+    );
   });
 });
