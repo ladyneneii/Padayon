@@ -4,6 +4,7 @@ const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
 const bodyParser = require("body-parser");
+const multer = require("multer");
 const mysql = require("mysql2");
 app.use(cors());
 const port = process.env.PORT || 3001;
@@ -42,6 +43,9 @@ server.listen(port, () => {
 
 app.use(express.static("../client")); // This directs it to the index.html file in the client folder
 
+// Use multer to handle file uploads
+const upload = multer();
+
 // bodyParser
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
@@ -71,5 +75,29 @@ app.get("/api/users", (req, res) => {
         console.log(err);
       }
     });
+  });
+});
+
+// Add a user
+app.post("/api/users", upload.single("avatar_url"), (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    console.log(`connected as id ${connection.threadId}`);
+
+    const params = req.body;
+    // Add the file path to the params
+    params.avatar_url = req.file.originalname;
+
+    connection.query("INSERT INTO users SET ?", params, (err, rows) => {
+      connection.release(); // return the connection to pool
+
+      if (!err) {
+        res.send(`User ${params.username} has been added.`);
+      } else {
+        console.log(err);
+      }
+    });
+
+    console.log(req.body);
   });
 });
