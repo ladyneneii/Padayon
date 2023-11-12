@@ -142,7 +142,7 @@ app.get("/api/users/:emailPass", (req, res) => {
           res.status(404).send("User not found");
         } else {
           // User found, send the user data
-          res.send(rows);
+          res.send(rows[0]);
         }
       } else {
         console.log(err);
