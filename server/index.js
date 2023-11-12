@@ -77,6 +77,50 @@ app.get("/api/users", (req, res) => {
   });
 });
 
+// Retrieve user with inputted username
+app.get("/api/username_check/:username", (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    console.log(`connected as id ${connection.threadId}`);
+
+    connection.query("SELECT * FROM users WHERE Username = ?", [req.params.username], (err, rows) => {
+      connection.release(); // return the connection to pool
+
+      if (!err) {
+        if (rows.length === 0) {
+          res.send("This is a unique username.");
+        } else {
+          res.status(404).send("This username already exists.");
+        }
+      } else {
+        console.log(err);
+      }
+    });
+  });
+});
+
+// Retrieve user with inputted email
+app.get("/api/email_check/:email", (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    console.log(`connected as id ${connection.threadId}`);
+
+    connection.query("SELECT * FROM users WHERE Email = ?", [req.params.email], (err, rows) => {
+      connection.release(); // return the connection to pool
+
+      if (!err) {
+        if (rows.length === 0) {
+          res.send("This is a unique email.");
+        } else {
+          res.status(404).send("This email already exists.");
+        }
+      } else {
+        console.log(err);
+      }
+    });
+  });
+});
+
 // Retrieve user with inputted email and password
 app.get("/api/users/:emailPass", (req, res) => {
   pool.getConnection((err, connection) => {
