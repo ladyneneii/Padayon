@@ -54,23 +54,13 @@ io.on("connection", (socket) => {
       if (err) throw err;
       console.log(`connected as id ${connection.threadId}`);
 
-      const { user_id, room_id, room, Content, date_time, message_reply_id } = messageData;
-
-      const params = {
-        user_id,
-        room_id,
-        Content,
-        date_time,
-        message_reply_id,
-      };
-
-      connection.query("INSERT INTO messages SET ?", params, (err, rows) => {
+      connection.query("INSERT INTO messages SET ?", messageData, (err, rows) => {
         connection.release(); // return the connection to pool
 
         if (!err) {
           console.log(`Message has been added.`);
           // .to(room_id) means only the users in the same room id can interact with each other. room_id works because it is the basis in socket.join()
-          socket.to(room_id).emit("receive_message", messageData);
+          socket.to(messageData.room_id).emit("receive_message", messageData);
         } else {
           console.log(err);
         }
@@ -300,6 +290,28 @@ app.put("/api/rooms", upload.single("avatar_url"), (req, res) => {
               console.log("This room is still pending.");
             }
           }
+        } else {
+          console.log(err);
+        }
+      }
+    );
+  });
+});
+
+// Get all messages in a room_id
+app.get("/api/rooms/:room_id", (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    console.log(`connected as id ${connection.threadId}`);
+
+    connection.query(
+      "SELECT * FROM messages WHERE room_id = ? ORDER BY message_id",
+      [req.params.room_id],
+      (err, rows) => {
+        connection.release(); // return the connection to pool
+
+        if (!err) {
+          res.send(rows);
         } else {
           console.log(err);
         }
