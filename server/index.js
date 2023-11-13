@@ -10,32 +10,6 @@ const port = process.env.PORT || 3001;
 
 const server = http.createServer(app);
 
-const io = new Server(server, {
-  cors: {
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST"],
-  },
-});
-
-io.on("connection", (socket) => {
-  console.log(`User Connected: ${socket.id}`);
-
-  socket.on("join_room", (data) => {
-    socket.join(data);
-    console.log(`User with ID: ${socket.id} joined room: ${data}`);
-  });
-
-  socket.on("send_message", (data) => {
-    console.log(data);
-    // .to(data.room) means only the users in the same room can receive the message
-    socket.to(data.room).emit("receive_message", data);
-  });
-
-  socket.on("disconnect", () => {
-    console.log("User disconnected", socket.id);
-  });
-});
-
 server.listen(port, () => {
   console.log("SERVER RUNNING");
 });
@@ -54,6 +28,58 @@ const pool = mysql.createPool({
   user: "root",
   password: "root",
   database: "padayon",
+});
+
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST"],
+  },
+});
+
+io.on("connection", (socket) => {
+  console.log(`User Connected: ${socket.id}`);
+
+  socket.on("join_room", (data) => {
+    socket.join(data);
+    console.log(`User with ID: ${socket.id} joined room: ${data}`);
+  });
+
+  socket.on("send_message", (messageData) => {
+    console.log(messageData);
+
+    // add message to database
+    pool.getConnection((err, connection) => {
+      if (err) throw err;
+      console.log(`connected as id ${connection.threadId}`);
+
+      const { user_id, room_id, room, Content, date_time, message_reply_id } = messageData;
+
+      const params = {
+        user_id,
+        room_id,
+        Content,
+        date_time,
+        message_reply_id,
+      };
+
+      connection.query("INSERT INTO messages SET ?", params, (err, rows) => {
+        connection.release(); // return the connection to pool
+
+        if (!err) {
+          console.log(`Message has been added.`);
+          // .to(data.room) means only the users in the same room can receive the message. this only works with room for some reason, not room_id
+          socket.to(room).emit("receive_message", messageData);
+        } else {
+          console.log(err);
+        }
+      });
+    });
+  });
+
+  socket.on("disconnect", () => {
+    console.log("User disconnected", socket.id);
+  });
 });
 
 // Get all users
@@ -150,7 +176,7 @@ app.get("/api/users/:emailPass", (req, res) => {
             res.status(404).send("User not found");
           } else {
             // User found, send the user data
-            res.send(rows[0]);
+            res.send(rows);
           }
         } else {
           console.log(err);
@@ -206,49 +232,71 @@ app.put("/api/rooms", upload.single("avatar_url"), (req, res) => {
               connection.release(); // return the connection to pool
 
               if (!err) {
-                res.send(`Room ${params.Title} has been added.`);
+                console.log(`Room ${params.Title} has been added.`);
+
+                // Perform a SELECT query to get the details of the inserted room
+                connection.query(
+                  "SELECT * FROM rooms WHERE room_id = ?",
+                  [rows.insertId],
+                  (err, rows) => {
+                    connection.release(); // return the connection to pool
+
+                    if (!err) {
+                      console.log("This is the inserted row ", rows);
+                      // Send the details of the inserted room as the response to the client
+                      res.send(rows);
+                    } else {
+                      console.log(err);
+                      res
+                        .status(500)
+                        .send("Error fetching inserted room details");
+                    }
+                  }
+                );
               } else {
                 console.log(err);
               }
             });
           } else {
-            const existingMembers = rows[0].Members;
+            if (rows[0].State === "Active") {
+              const existingMembers = rows[0].Members;
 
-            // Check if params.Members already exists in the existingMembers string
-            if (!existingMembers.includes(params.Members)) {
-              // If it doesn't exist, update the 'Members' column
-              connection.query(
-                "UPDATE rooms SET Members = CONCAT_WS(', ', Members, ?) WHERE Title = ? AND Password = ?",
-                [params.Members, params.Title, params.Password],
-                (err, rows) => {
-                  connection.release(); // return the connection to the pool
+              // Check if params.Members already exists in the existingMembers string
+              if (!existingMembers.includes(params.Members)) {
+                // If it doesn't exist, update the 'Members' column
+                connection.query(
+                  "UPDATE rooms SET Members = CONCAT_WS(', ', Members, ?) WHERE Title = ? AND Password = ?",
+                  [params.Members, params.Title, params.Password],
+                  (err, updatedRows) => {
+                    connection.release(); // return the connection to the pool
 
-                  if (!err) {
-                    if (params.State === "Active") {
-                      res.send(
+                    if (!err) {
+                      console.log(
                         `Room with the Title: ${params.Title} has been updated.`
                       );
-                    } else if (params.State === "Blocked") {
-                      console.log("This room is blocked.");
-                    } else if (params.State === "Pending") {
-                      console.log("This room is still pending.");
+                      console.log(rows);
+
+                      // send room details here to the client
+                      res.send(rows);
+                    } else {
+                      console.log(err);
                     }
-                  } else {
-                    console.log(err);
                   }
-                }
-              );
-            } else {
-              if (params.State === "Active") {
+                );
+              } else {
                 // If params.Members already exists, you may want to handle this case accordingly
-                res.send(
+                console.log(
                   `Room with the Title: ${params.Title} is already associated with ${params.Members}.`
                 );
-              } else if (params.State === "Blocked") {
-                console.log("This room is blocked.");
-              } else if (params.State === "Pending") {
-                console.log("This room is still pending.");
+                console.log(rows);
+
+                // send room details here to the client
+                res.send(rows);
               }
+            } else if (params.State === "Blocked") {
+              console.log("This room is blocked.");
+            } else if (params.State === "Pending") {
+              console.log("This room is still pending.");
             }
           }
         } else {
