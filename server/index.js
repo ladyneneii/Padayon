@@ -47,7 +47,6 @@ app.use(express.urlencoded({ extended: true }));
 // Use multer to handle file uploads
 const upload = multer();
 
-
 // MySQL
 const pool = mysql.createPool({
   connectionLimit: 10,
@@ -81,19 +80,23 @@ app.get("/api/username_check/:username", (req, res) => {
     if (err) throw err;
     console.log(`connected as id ${connection.threadId}`);
 
-    connection.query("SELECT * FROM users WHERE Username = ?", [req.params.username], (err, rows) => {
-      connection.release(); // return the connection to pool
+    connection.query(
+      "SELECT * FROM users WHERE Username = ?",
+      [req.params.username],
+      (err, rows) => {
+        connection.release(); // return the connection to pool
 
-      if (!err) {
-        if (rows.length === 0) {
-          res.send("This is a unique username.");
+        if (!err) {
+          if (rows.length === 0) {
+            res.send("This is a unique username.");
+          } else {
+            res.status(404).send("This username already exists.");
+          }
         } else {
-          res.status(404).send("This username already exists.");
+          console.log(err);
         }
-      } else {
-        console.log(err);
       }
-    });
+    );
   });
 });
 
@@ -103,19 +106,23 @@ app.get("/api/email_check/:email", (req, res) => {
     if (err) throw err;
     console.log(`connected as id ${connection.threadId}`);
 
-    connection.query("SELECT * FROM users WHERE Email = ?", [req.params.email], (err, rows) => {
-      connection.release(); // return the connection to pool
+    connection.query(
+      "SELECT * FROM users WHERE Email = ?",
+      [req.params.email],
+      (err, rows) => {
+        connection.release(); // return the connection to pool
 
-      if (!err) {
-        if (rows.length === 0) {
-          res.send("This is a unique email.");
+        if (!err) {
+          if (rows.length === 0) {
+            res.send("This is a unique email.");
+          } else {
+            res.status(404).send("This email already exists.");
+          }
         } else {
-          res.status(404).send("This email already exists.");
+          console.log(err);
         }
-      } else {
-        console.log(err);
       }
-    });
+    );
   });
 });
 
@@ -131,21 +138,25 @@ app.get("/api/users/:emailPass", (req, res) => {
 
     console.log(`The email and password are ${email} and ${pwd}`);
 
-    connection.query("SELECT * FROM users WHERE Email = ? AND Password = ?", [email, pwd], (err, rows) => {
-      connection.release(); // return the connection to pool
+    connection.query(
+      "SELECT * FROM users WHERE Email = ? AND Password = ?",
+      [email, pwd],
+      (err, rows) => {
+        connection.release(); // return the connection to pool
 
-      if (!err) {
-        if (rows.length === 0) {
-          // No user found with the specified email and password
-          res.status(404).send("User not found");
+        if (!err) {
+          if (rows.length === 0) {
+            // No user found with the specified email and password
+            res.status(404).send("User not found");
+          } else {
+            // User found, send the user data
+            res.send(rows[0]);
+          }
         } else {
-          // User found, send the user data
-          res.send(rows[0]);
+          console.log(err);
         }
-      } else {
-        console.log(err);
       }
-    });
+    );
   });
 });
 
@@ -213,19 +224,31 @@ app.put("/api/rooms", upload.single("avatar_url"), (req, res) => {
                   connection.release(); // return the connection to the pool
 
                   if (!err) {
-                    res.send(
-                      `Room with the Title: ${params.Title} has been updated.`
-                    );
+                    if (params.State === "Active") {
+                      res.send(
+                        `Room with the Title: ${params.Title} has been updated.`
+                      );
+                    } else if (params.State === "Blocked") {
+                      console.log("This room is blocked.");
+                    } else if (params.State === "Pending") {
+                      console.log("This room is still pending.");
+                    }
                   } else {
                     console.log(err);
                   }
                 }
               );
             } else {
-              // If params.Members already exists, you may want to handle this case accordingly
-              res.send(
-                `Room with the Title: ${params.Title} is already associated with ${params.Members}.`
-              );
+              if (params.State === "Active") {
+                // If params.Members already exists, you may want to handle this case accordingly
+                res.send(
+                  `Room with the Title: ${params.Title} is already associated with ${params.Members}.`
+                );
+              } else if (params.State === "Blocked") {
+                console.log("This room is blocked.");
+              } else if (params.State === "Pending") {
+                console.log("This room is still pending.");
+              }
             }
           }
         } else {
