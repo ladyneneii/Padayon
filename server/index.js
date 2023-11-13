@@ -40,9 +40,10 @@ const io = new Server(server, {
 io.on("connection", (socket) => {
   console.log(`User Connected: ${socket.id}`);
 
-  socket.on("join_room", (data) => {
-    socket.join(data);
-    console.log(`User with ID: ${socket.id} joined room: ${data}`);
+  socket.on("join_room", (room_id) => {
+    // using room_id here means that this is the basis of the rooms, not the room name itself
+    socket.join(room_id);
+    console.log(`User with ID: ${socket.id} joined room: ${room_id}`);
   });
 
   socket.on("send_message", (messageData) => {
@@ -68,8 +69,8 @@ io.on("connection", (socket) => {
 
         if (!err) {
           console.log(`Message has been added.`);
-          // .to(data.room) means only the users in the same room can receive the message. this only works with room for some reason, not room_id
-          socket.to(room).emit("receive_message", messageData);
+          // .to(room_id) means only the users in the same room id can interact with each other. room_id works because it is the basis in socket.join()
+          socket.to(room_id).emit("receive_message", messageData);
         } else {
           console.log(err);
         }
