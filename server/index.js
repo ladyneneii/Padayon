@@ -54,17 +54,21 @@ io.on("connection", (socket) => {
       if (err) throw err;
       console.log(`connected as id ${connection.threadId}`);
 
-      connection.query("INSERT INTO messages SET ?", messageData, (err, rows) => {
-        connection.release(); // return the connection to pool
+      connection.query(
+        "INSERT INTO messages SET ?",
+        messageData,
+        (err, rows) => {
+          connection.release(); // return the connection to pool
 
-        if (!err) {
-          console.log(`Message has been added.`);
-          // .to(room_id) means only the users in the same room id can interact with each other. room_id works because it is the basis in socket.join()
-          socket.to(messageData.room_id).emit("receive_message", messageData);
-        } else {
-          console.log(err);
+          if (!err) {
+            console.log(`Message has been added.`);
+            // .to(room_id) means only the users in the same room id can interact with each other. room_id works because it is the basis in socket.join()
+            socket.to(messageData.room_id).emit("receive_message", messageData);
+          } else {
+            console.log(err);
+          }
         }
-      });
+      );
     });
   });
 
@@ -320,22 +324,68 @@ app.get("/api/rooms/:room_id", (req, res) => {
   });
 });
 
-// Add a location
-app.post("/api/locations", upload.single("avatar_url"), (req, res) => {
+// Add or update a location
+app.put("/api/locations", upload.single("avatar_url"), (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err;
     const params = req.body;
 
-    connection.query("INSERT INTO locations SET ?", params, (err, rows) => {
+    connection.query(
+      "SELECT * FROM locations WHERE user_id = ?",
+      [params.user_id],
+      (err, rows) => {
+        connection.release(); // return the connection to pool
+
+        if (!err) {
+          if (rows.length === 0) {
+            connection.query(
+              "INSERT INTO locations SET ?",
+              params,
+              (err, rows) => {
+                connection.release(); 
+
+                if (!err) {
+                  res.send(`Lat and lon have been added.`);
+                } else {
+                  console.log(err);
+                }
+              }
+            );
+          } else if (rows.length === 1) {
+            connection.query(
+              "UPDATE locations SET Latitude = ?, Longitude = ?  WHERE user_id = ?",
+              [params.Latitude, params.Longitude, params.user_id],
+              (err, updatedRows) => {
+                connection.release(); 
+
+                if (!err) {
+                  res.send(`Lat and lon have been updated.`);
+                } else {
+                  console.log(err);
+                }
+              }
+            );
+          }
+        } else {
+          console.log(err);
+        }
+      }
+    );
+  });
+});
+
+// Get all locations
+app.get("/api/locations", (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    connection.query("SELECT * FROM locations", (err, rows) => {
       connection.release(); // return the connection to pool
 
       if (!err) {
-        res.send(`User ${params.username} has been added.`);
+        res.send(rows);
       } else {
         console.log(err);
       }
     });
-
-    console.log(req.body);
   });
 });
