@@ -319,3 +319,23 @@ app.get("/api/rooms/:room_id", (req, res) => {
     );
   });
 });
+
+// Add a location
+app.post("/api/locations", upload.single("avatar_url"), (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    const params = req.body;
+
+    connection.query("INSERT INTO locations SET ?", params, (err, rows) => {
+      connection.release(); // return the connection to pool
+
+      if (!err) {
+        res.send(`User ${params.username} has been added.`);
+      } else {
+        console.log(err);
+      }
+    });
+
+    console.log(req.body);
+  });
+});
