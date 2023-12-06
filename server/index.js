@@ -38,8 +38,6 @@ const io = new Server(server, {
 });
 
 io.on("connection", (socket) => {
-  console.log(`User Connected: ${socket.id}`);
-
   socket.on("join_room", (room_id) => {
     // using room_id here means that this is the basis of the rooms, not the room name itself
     socket.join(room_id);
@@ -52,8 +50,6 @@ io.on("connection", (socket) => {
     // add message to database
     pool.getConnection((err, connection) => {
       if (err) throw err;
-      console.log(`connected as id ${connection.threadId}`);
-
       connection.query(
         "INSERT INTO messages SET ?",
         messageData,
@@ -81,8 +77,6 @@ io.on("connection", (socket) => {
 app.get("/api/users", (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err;
-    console.log(`connected as id ${connection.threadId}`);
-
     connection.query("SELECT * FROM users", (err, rows) => {
       connection.release(); // return the connection to pool
 
@@ -99,8 +93,6 @@ app.get("/api/users", (req, res) => {
 app.get("/api/username_check/:username", (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err;
-    console.log(`connected as id ${connection.threadId}`);
-
     connection.query(
       "SELECT * FROM users WHERE Username = ?",
       [req.params.username],
@@ -125,8 +117,6 @@ app.get("/api/username_check/:username", (req, res) => {
 app.get("/api/email_check/:email", (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err;
-    console.log(`connected as id ${connection.threadId}`);
-
     connection.query(
       "SELECT * FROM users WHERE Email = ?",
       [req.params.email],
@@ -151,8 +141,6 @@ app.get("/api/email_check/:email", (req, res) => {
 app.get("/api/users/:emailPass", (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err;
-    console.log(`connected as id ${connection.threadId}`);
-
     const emailPass = req.params.emailPass.split(",");
     const email = emailPass[0];
     const pwd = emailPass[1];
@@ -185,9 +173,8 @@ app.get("/api/users/:emailPass", (req, res) => {
 app.post("/api/users", upload.single("avatar_url"), (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err;
-    console.log(`connected as id ${connection.threadId}`);
-
     const params = req.body;
+    console.log(params);
     // Add the file path to the params
     params.avatar_url = req.file.originalname;
 
@@ -200,8 +187,6 @@ app.post("/api/users", upload.single("avatar_url"), (req, res) => {
         console.log(err);
       }
     });
-
-    console.log(req.body);
   });
 });
 
