@@ -182,11 +182,33 @@ app.post("/api/users", upload.single("avatar_url"), (req, res) => {
       connection.release(); // return the connection to pool
 
       if (!err) {
-        res.send(`User ${params.username} has been added.`);
+        res.json(rows.insertId);
       } else {
         console.log(err);
       }
     });
+  });
+});
+
+// Add a mental health professional
+app.post("/api/mhps", upload.single("avatar_url"), (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    const params = req.body;
+
+    connection.query(
+      "INSERT INTO mental_health_professionals SET ?",
+      params,
+      (err, rows) => {
+        connection.release(); // return the connection to pool
+
+        if (!err) {
+          res.json(rows);
+        } else {
+          console.log(err);
+        }
+      }
+    );
   });
 });
 
@@ -327,7 +349,7 @@ app.put("/api/locations", upload.single("avatar_url"), (req, res) => {
               "INSERT INTO locations SET ?",
               params,
               (err, rows) => {
-                connection.release(); 
+                connection.release();
 
                 if (!err) {
                   res.send(`Lat and lon have been added.`);
@@ -341,7 +363,7 @@ app.put("/api/locations", upload.single("avatar_url"), (req, res) => {
               "UPDATE locations SET Latitude = ?, Longitude = ?  WHERE user_id = ?",
               [params.Latitude, params.Longitude, params.user_id],
               (err, updatedRows) => {
-                connection.release(); 
+                connection.release();
 
                 if (!err) {
                   res.send(`Lat and lon have been updated.`);
