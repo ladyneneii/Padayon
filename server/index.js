@@ -203,7 +203,21 @@ app.post("/api/mhps", upload.single("avatar_url"), (req, res) => {
         connection.release(); // return the connection to pool
 
         if (!err) {
-          res.json(rows);
+          // update State from Unverified to Active
+          connection.query(
+            "UPDATE users SET State = ? WHERE user_id = ?",
+            ["Active", params.user_id],
+            (err, rows) => {
+              connection.release(); // return the connection to pool
+
+              if (!err) {
+                res.json(rows);
+
+              } else {
+                console.log(err);
+              }
+            }
+          );
         } else {
           console.log(err);
         }
