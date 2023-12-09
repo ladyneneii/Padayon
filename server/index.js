@@ -145,8 +145,6 @@ app.get("/api/users/:emailPass", (req, res) => {
     const email = emailPass[0];
     const pwd = emailPass[1];
 
-    console.log(`The email and password are ${email} and ${pwd}`);
-
     connection.query(
       "SELECT * FROM users WHERE Email = ? AND Password = ?",
       [email, pwd],
@@ -212,7 +210,6 @@ app.post("/api/mhps", upload.single("avatar_url"), (req, res) => {
 
               if (!err) {
                 res.json(rows);
-
               } else {
                 console.log(err);
               }
@@ -327,8 +324,6 @@ app.put("/api/rooms", upload.single("avatar_url"), (req, res) => {
 app.get("/api/rooms/:room_id", (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err;
-    console.log(`connected as id ${connection.threadId}`);
-
     connection.query(
       "SELECT * FROM messages WHERE room_id = ? ORDER BY message_id",
       [req.params.room_id],
@@ -345,53 +340,90 @@ app.get("/api/rooms/:room_id", (req, res) => {
   });
 });
 
-// Add or update a location
-app.put("/api/locations", upload.single("avatar_url"), (req, res) => {
+// Send user_id and location whether null or existing
+app.get("/api/location_check/:user_id", (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err;
-    const params = req.body;
-
     connection.query(
-      "SELECT * FROM locations WHERE user_id = ?",
-      [params.user_id],
+      "SELECT * FROM mental_health_professionals WHERE user_id = ?",
+      [req.params.user_id],
       (err, rows) => {
-        connection.release(); // return the connection to pool
+        connection.release(); 
 
         if (!err) {
           if (rows.length === 0) {
-            connection.query(
-              "INSERT INTO locations SET ?",
-              params,
-              (err, rows) => {
-                connection.release();
-
-                if (!err) {
-                  res.send(`Lat and lon have been added.`);
-                } else {
-                  console.log(err);
-                }
-              }
-            );
-          } else if (rows.length === 1) {
-            connection.query(
-              "UPDATE locations SET Latitude = ?, Longitude = ?  WHERE user_id = ?",
-              [params.Latitude, params.Longitude, params.user_id],
-              (err, updatedRows) => {
-                connection.release();
-
-                if (!err) {
-                  res.send(`Lat and lon have been updated.`);
-                } else {
-                  console.log(err);
-                }
-              }
-            );
+            res.send("This user is not a mental health professional.");
+          } else {
+            res.json(rows[0])
           }
         } else {
           console.log(err);
         }
       }
     );
+  });
+});
+
+// Add or update a location
+app.put("/api/locations", upload.single("avatar_url"), (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    const params = req.body;
+    const user_id = params.user_id;
+    // delete user_id since it is not part of the insert query, but save it first because it is used to update the location_id of the user
+    delete params.user_id;
+
+    if (params.location_id === "null") {
+      // Delete location_id since it is null
+      delete params.location_id;
+      // Add a location
+      connection.query(
+        "INSERT INTO locations SET ?",
+        params,
+        (err, rows) => {
+          connection.release(); 
+          // Get new location_id
+          const location_id = rows.insertId
+
+          if (!err) {
+            // update location_id of mhp user
+            connection.query(
+              "UPDATE mental_health_professionals SET location_id = ? WHERE user_id = ?",
+              [location_id, user_id],
+              (err, rows) => {
+                connection.release(); 
+
+                if (!err) {
+                  console.log("Successfully added location");
+                  res.json(rows);
+                } else {
+                  console.log(err);
+                }
+              }
+            );
+          } else {
+            console.log(err);
+          }
+        }
+      );
+    } else {
+      // Update coordinates
+      // Use location_id to update the coords
+      connection.query(
+        "UPDATE locations SET Latitude = ?, Longitude = ? WHERE location_id = ?",
+        [params.Latitude, params.Longitude, params.location_id],
+        (err, rows) => {
+          connection.release();
+          
+          if (!err) {
+            console.log("Successfully updated location");
+            res.json(rows);
+          } else {
+            console.log(err);
+          }
+        }
+      );
+    }
   });
 });
 
