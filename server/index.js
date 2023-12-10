@@ -479,7 +479,7 @@ app.patch("/api/posts", upload.single("avatar_url"), (req, res) => {
   });
 });
 
-// Change a post
+// Delete a post
 app.delete("/api/posts", upload.single("avatar_url"), (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err;
@@ -494,7 +494,22 @@ app.delete("/api/posts", upload.single("avatar_url"), (req, res) => {
         if (!err) {
           res.json(rows);
         } else {
-          console.log(err);
+          // update post's state to DeletedReply
+          const State = "DeletedReply"
+
+          connection.query(
+            "UPDATE posts SET State = ? WHERE post_id = ?",
+            [State, params.post_id],
+            (err, rows) => {
+              connection.release();
+
+              if (!err) {
+                res.send("DeletedReply");
+              } else {
+                console.log(err);
+              }
+            }
+          );
         }
       }
     );
@@ -507,12 +522,12 @@ const async = require("async");
 app.get("/api/posts", (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err;
-    const State = "Visible";
+    const State = "Hidden";
     let ordered_rows = [];
 
     // get the root posts
     connection.query(
-      "SELECT * FROM posts WHERE State = ? AND post_reply_id IS NULL ORDER BY post_id DESC",
+      "SELECT * FROM posts WHERE State != ? AND post_reply_id IS NULL ORDER BY post_id DESC",
       [State],
       (err, rows) => {
         connection.release();
@@ -534,13 +549,14 @@ function getOrderedPosts(res, connection, ordered_rows, rows, callback) {
       rows,
       (row, innerCallback) => {
         const { post_id } = row;
+        const State = "Hidden"
 
         ordered_rows.push(row);
 
         // Get the first level replies
         connection.query(
-          "SELECT * FROM posts WHERE post_reply_id = ?",
-          [post_id],
+          "SELECT * FROM posts WHERE post_reply_id = ? AND State != ?",
+          [post_id, State],
           (err, replies) => {
             if (!err) {
               count++;
