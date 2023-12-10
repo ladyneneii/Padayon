@@ -461,6 +461,24 @@ app.post("/api/posts", upload.single("avatar_url"), (req, res) => {
   });
 });
 
+// Change a post
+app.patch("/api/posts", upload.single("avatar_url"), (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    const params = req.body;
+
+    connection.query("UPDATE posts SET Content = ? WHERE post_id = ?", [params.Content, params.post_id], (err, rows) => {
+      connection.release(); // return the connection to pool
+
+      if (!err) {
+        res.json(rows);
+      } else {
+        console.log(err);
+      }
+    });
+  });
+});
+
 // Get all posts
 app.get("/api/posts", (req, res) => {
   pool.getConnection((err, connection) => {
