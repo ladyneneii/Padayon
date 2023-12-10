@@ -501,44 +501,77 @@ app.delete("/api/posts", upload.single("avatar_url"), (req, res) => {
   });
 });
 
+const async = require("async");
+
 // Get all posts
 app.get("/api/posts", (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err;
     const State = "Visible";
+    let ordered_rows = [];
+
     // get the root posts
     connection.query(
       "SELECT * FROM posts WHERE State = ? AND post_reply_id IS NULL ORDER BY post_id DESC",
       [State],
       (err, rows) => {
         connection.release();
-        // rows_json = JSON.stringify(rows);
 
-        rows.forEach(({ post_id }) => {
-          connection.query(
-            "SELECT * FROM posts WHERE post_reply_id = ?",
-            [post_id],
-            (err, rows) => {
-              connection.release(); 
-              // rows_json = JSON.stringify(rows);
-
-              // rows.forEach(({ post_id }) => {
-              //   console.log(post_id);
-              // });
-              if (!err) {
-                console.log(`These are the replies to ${post_id}: ${rows}`);
-              } else {
-                console.log(err);
-              }
-            }
-          );
+        getOrderedPosts(res, connection, ordered_rows, rows, () => {
+          // Callback to send the response once all operations are complete
+          res.send(ordered_rows);
         });
-        if (!err) {
-          res.send(rows);
-        } else {
-          console.log(err);
-        }
       }
     );
   });
 });
+
+function getOrderedPosts(res, connection, ordered_rows, rows, callback) {
+  if (rows.length > 0) {
+    let count = 0;
+
+    async.eachSeries(
+      rows,
+      (row, innerCallback) => {
+        const { post_id } = row;
+
+        ordered_rows.push(row);
+
+        // Get the first level replies
+        connection.query(
+          "SELECT * FROM posts WHERE post_reply_id = ?",
+          [post_id],
+          (err, replies) => {
+            if (!err) {
+              count++;
+              getOrderedPosts(
+                res,
+                connection,
+                ordered_rows,
+                replies,
+                innerCallback
+              );
+            } else {
+              console.log(err);
+              innerCallback(err); // If an error occurs, pass it to the callback
+            }
+          }
+        );
+      },
+      (err) => {
+        if (!err) {
+          if (count === rows.length) {
+            callback(); // Signal completion to the outer callback
+          }
+        } else {
+          console.log(err);
+          res.status(500).send("Internal Server Error");
+        }
+      }
+    );
+  } else {
+    callback(); // If there are no rows, signal completion directly
+  }
+}
+
+
