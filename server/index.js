@@ -348,13 +348,13 @@ app.get("/api/location_check/:user_id", (req, res) => {
       "SELECT * FROM mental_health_professionals WHERE user_id = ?",
       [req.params.user_id],
       (err, rows) => {
-        connection.release(); 
+        connection.release();
 
         if (!err) {
           if (rows.length === 0) {
             res.send("This user is not a mental health professional.");
           } else {
-            res.json(rows[0])
+            res.json(rows[0]);
           }
         } else {
           console.log(err);
@@ -377,35 +377,31 @@ app.put("/api/locations", upload.single("avatar_url"), (req, res) => {
       // Delete location_id since it is null
       delete params.location_id;
       // Add a location
-      connection.query(
-        "INSERT INTO locations SET ?",
-        params,
-        (err, rows) => {
-          connection.release(); 
-          // Get new location_id
-          const location_id = rows.insertId
+      connection.query("INSERT INTO locations SET ?", params, (err, rows) => {
+        connection.release();
+        // Get new location_id
+        const location_id = rows.insertId;
 
-          if (!err) {
-            // update location_id of mhp user
-            connection.query(
-              "UPDATE mental_health_professionals SET location_id = ? WHERE user_id = ?",
-              [location_id, user_id],
-              (err, rows) => {
-                connection.release(); 
+        if (!err) {
+          // update location_id of mhp user
+          connection.query(
+            "UPDATE mental_health_professionals SET location_id = ? WHERE user_id = ?",
+            [location_id, user_id],
+            (err, rows) => {
+              connection.release();
 
-                if (!err) {
-                  console.log("Successfully added location");
-                  res.json(rows);
-                } else {
-                  console.log(err);
-                }
+              if (!err) {
+                console.log("Successfully added location");
+                res.json(rows);
+              } else {
+                console.log(err);
               }
-            );
-          } else {
-            console.log(err);
-          }
+            }
+          );
+        } else {
+          console.log(err);
         }
-      );
+      });
     } else {
       // Update coordinates
       // Use location_id to update the coords
@@ -414,7 +410,7 @@ app.put("/api/locations", upload.single("avatar_url"), (req, res) => {
         [params.Latitude, params.Longitude, params.location_id],
         (err, rows) => {
           connection.release();
-          
+
           if (!err) {
             console.log("Successfully updated location");
             res.json(rows);
@@ -467,15 +463,41 @@ app.patch("/api/posts", upload.single("avatar_url"), (req, res) => {
     if (err) throw err;
     const params = req.body;
 
-    connection.query("UPDATE posts SET Content = ? WHERE post_id = ?", [params.Content, params.post_id], (err, rows) => {
-      connection.release(); // return the connection to pool
+    connection.query(
+      "UPDATE posts SET Content = ? WHERE post_id = ?",
+      [params.Content, params.post_id],
+      (err, rows) => {
+        connection.release(); // return the connection to pool
 
-      if (!err) {
-        res.json(rows);
-      } else {
-        console.log(err);
+        if (!err) {
+          res.json(rows);
+        } else {
+          console.log(err);
+        }
       }
-    });
+    );
+  });
+});
+
+// Change a post
+app.delete("/api/posts", upload.single("avatar_url"), (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    const params = req.body;
+
+    connection.query(
+      "DELETE FROM posts WHERE post_id = ?",
+      [params.post_id],
+      (err, rows) => {
+        connection.release(); // return the connection to pool
+
+        if (!err) {
+          res.json(rows);
+        } else {
+          console.log(err);
+        }
+      }
+    );
   });
 });
 
