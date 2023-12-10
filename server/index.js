@@ -505,14 +505,40 @@ app.delete("/api/posts", upload.single("avatar_url"), (req, res) => {
 app.get("/api/posts", (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err;
-    connection.query("SELECT * FROM posts", (err, rows) => {
-      connection.release(); // return the connection to pool
+    const State = "Visible";
+    // get the root posts
+    connection.query(
+      "SELECT * FROM posts WHERE State = ? AND post_reply_id IS NULL ORDER BY post_id DESC",
+      [State],
+      (err, rows) => {
+        connection.release();
+        // rows_json = JSON.stringify(rows);
 
-      if (!err) {
-        res.send(rows);
-      } else {
-        console.log(err);
+        rows.forEach(({ post_id }) => {
+          connection.query(
+            "SELECT * FROM posts WHERE post_reply_id = ?",
+            [post_id],
+            (err, rows) => {
+              connection.release(); 
+              // rows_json = JSON.stringify(rows);
+
+              // rows.forEach(({ post_id }) => {
+              //   console.log(post_id);
+              // });
+              if (!err) {
+                console.log(`These are the replies to ${post_id}: ${rows}`);
+              } else {
+                console.log(err);
+              }
+            }
+          );
+        });
+        if (!err) {
+          res.send(rows);
+        } else {
+          console.log(err);
+        }
       }
-    });
+    );
   });
 });
