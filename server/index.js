@@ -492,11 +492,12 @@ app.delete("/api/posts", upload.single("avatar_url"), (req, res) => {
         connection.release(); // return the connection to pool
 
         if (!err) {
+          console.log("This is");
+          console.log(params.post_id);
           res.json(rows);
         } else {
-          // update post's state to DeletedReply
-          const State = "DeletedReply"
-
+          // update post's state to MarkedDeleted
+          const State = "MarkedDeleted";
           connection.query(
             "UPDATE posts SET State = ? WHERE post_id = ?",
             [State, params.post_id],
@@ -504,12 +505,35 @@ app.delete("/api/posts", upload.single("avatar_url"), (req, res) => {
               connection.release();
 
               if (!err) {
-                res.send("DeletedReply");
+                console.log(rows);
+                console.log(params.post_id);
+                console.log(State);
+                res.send("MarkedDeleted");
               } else {
                 console.log(err);
               }
             }
           );
+        }
+      }
+    );
+  });
+});
+
+// undo delete
+app.patch("/api/undo_delete_post/:post_id", (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    connection.query(
+      "UPDATE posts SET State = ? WHERE post_id = ?",
+      ["Visible", req.params.post_id],
+      (err, rows) => {
+        connection.release(); // return the connection to pool
+
+        if (!err) {
+          res.send("Success.");
+        } else {
+          console.log(err);
         }
       }
     );
@@ -549,7 +573,7 @@ function getOrderedPosts(res, connection, ordered_rows, rows, callback) {
       rows,
       (row, innerCallback) => {
         const { post_id } = row;
-        const State = "Hidden"
+        const State = "Hidden";
 
         ordered_rows.push(row);
 
@@ -589,5 +613,3 @@ function getOrderedPosts(res, connection, ordered_rows, rows, callback) {
     callback(); // If there are no rows, signal completion directly
   }
 }
-
-
