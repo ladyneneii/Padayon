@@ -464,8 +464,8 @@ app.patch("/api/posts", upload.single("avatar_url"), (req, res) => {
     const params = req.body;
 
     connection.query(
-      "UPDATE posts SET Content = ? WHERE post_id = ?",
-      [params.Content, params.post_id],
+      "UPDATE posts SET Content = ?, date_time = ?, Type = ?, Privacy = ?, Remark = ? WHERE post_id = ?",
+      [params.Content, params.date_time, params.Type, params.Privacy, params.Remark, params.post_id],
       (err, rows) => {
         connection.release(); // return the connection to pool
 
