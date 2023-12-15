@@ -465,7 +465,14 @@ app.patch("/api/posts", upload.single("avatar_url"), (req, res) => {
 
     connection.query(
       "UPDATE posts SET Content = ?, date_time = ?, Type = ?, Privacy = ?, Remark = ? WHERE post_id = ?",
-      [params.Content, params.date_time, params.Type, params.Privacy, params.Remark, params.post_id],
+      [
+        params.Content,
+        params.date_time,
+        params.Type,
+        params.Privacy,
+        params.Remark,
+        params.post_id,
+      ],
       (err, rows) => {
         connection.release(); // return the connection to pool
 
@@ -613,3 +620,22 @@ function getOrderedPosts(res, connection, ordered_rows, rows, callback) {
     callback(); // If there are no rows, signal completion directly
   }
 }
+
+// Get all mhps with user info
+app.get("/api/mhps_with_user_info", (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    connection.query(
+      "SELECT * FROM users u INNER JOIN mental_health_professionals mhp ON u.user_id = mhp.user_id",
+      (err, rows) => {
+        connection.release(); // return the connection to pool
+
+        if (!err) {
+          res.send(rows);
+        } else {
+          console.log(err);
+        }
+      }
+    );
+  });
+});
