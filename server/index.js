@@ -228,7 +228,30 @@ app.get("/api/mhps_with_user_info", (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err;
     connection.query(
-      "SELECT * FROM users u INNER JOIN mental_health_professionals mhp ON u.user_id = mhp.user_id",
+      `SELECT u.Username,
+        u.avatar_url,
+        u.first_name,
+        u.middle_name,
+        u.last_name,
+        u.Age,
+        u.Gender,
+        u.Pronouns,
+        mhp.disorders_specializations,
+        mhp.Fees,
+        mhp.years_of_experience,
+        mhp.Languages,
+        mhp.min_age,
+        mhp.max_age,
+        mhp.Notes,
+        mhp.available_days,
+        mhp.available_hours,
+        l.Address,
+        l.Latitude,
+        l.Longitude
+      FROM 
+        users u 
+      INNER JOIN 
+        mental_health_professionals mhp ON u.user_id = mhp.user_id`,
       (err, rows) => {
         connection.release(); // return the connection to pool
 
@@ -272,7 +295,26 @@ app.get("/api/mhps_with_user_info_ordered/:latLon", (req, res) => {
 
     connection.query(
       `SELECT
-        *
+        u.Username,
+        u.avatar_url,
+        u.first_name,
+        u.middle_name,
+        u.last_name,
+        u.Age,
+        u.Gender,
+        u.Pronouns,
+        mhp.disorders_specializations,
+        mhp.Fees,
+        mhp.years_of_experience,
+        mhp.Languages,
+        mhp.min_age,
+        mhp.max_age,
+        mhp.Notes,
+        mhp.available_days,
+        mhp.available_hours,
+        l.Address,
+        l.Latitude,
+        l.Longitude
       FROM
         users u
       INNER JOIN
