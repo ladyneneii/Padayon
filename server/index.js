@@ -223,6 +223,96 @@ app.post("/api/mhps", upload.single("avatar_url"), (req, res) => {
   });
 });
 
+// Get all mhps with user info
+app.get("/api/mhps_with_user_info", (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    connection.query(
+      "SELECT * FROM users u INNER JOIN mental_health_professionals mhp ON u.user_id = mhp.user_id",
+      (err, rows) => {
+        connection.release(); // return the connection to pool
+
+        if (!err) {
+          res.send(rows);
+        } else {
+          console.log(err);
+        }
+      }
+    );
+  });
+});
+
+// get the distance between two coordinates in meters
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // Earth radius in meters
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  const metersAway = (R * c).toFixed(1); // Distance in meters
+  const kilometersAway = ((R * c) / 1000).toFixed(3); // Distance in meters
+
+  return { metersAway, kilometersAway };
+}
+
+// Get all mhps ordered by the distance between user and mhp
+app.get("/api/mhps_with_user_info_ordered/:latLon", (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    const latLon = req.params.latLon.split(",");
+    const lat1 = latLon[0];
+    const lon1 = latLon[1];
+
+    connection.query(
+      `SELECT
+        *
+      FROM
+        users u
+      INNER JOIN
+        mental_health_professionals mhp ON u.user_id = mhp.user_id
+      INNER JOIN
+        locations l ON mhp.location_id = l.location_id
+      WHERE mhp.location_id IS NOT NULL
+      ORDER BY
+        l.Latitude, l.Longitude`,
+      (err, rows) => {
+        connection.release(); // return the connection to pool
+
+        if (!err) {
+          if (rows.length > 0) {
+            // Calculate distance in JavaScript
+            const resultsWithDistance = rows.map((row) => ({
+              ...row,
+              DistanceAway: getDistance(
+                lat1,
+                lon1,
+                row.Latitude,
+                row.Longitude
+              ),
+            }));
+
+            // Sort the results by MetersAway just to make sure.
+            const sortedResults = resultsWithDistance.sort(
+              (a, b) => a.DistanceAway.metersAway - b.DistanceAway.metersAway
+            );
+
+            res.send(resultsWithDistance);
+          }
+        } else {
+          console.log(err);
+        }
+      }
+    );
+  });
+});
+
 // Add or update a room
 app.put("/api/rooms", upload.single("avatar_url"), (req, res) => {
   pool.getConnection((err, connection) => {
@@ -620,22 +710,3 @@ function getOrderedPosts(res, connection, ordered_rows, rows, callback) {
     callback(); // If there are no rows, signal completion directly
   }
 }
-
-// Get all mhps with user info
-app.get("/api/mhps_with_user_info", (req, res) => {
-  pool.getConnection((err, connection) => {
-    if (err) throw err;
-    connection.query(
-      "SELECT * FROM users u INNER JOIN mental_health_professionals mhp ON u.user_id = mhp.user_id",
-      (err, rows) => {
-        connection.release(); // return the connection to pool
-
-        if (!err) {
-          res.send(rows);
-        } else {
-          console.log(err);
-        }
-      }
-    );
-  });
-});
