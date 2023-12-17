@@ -246,6 +246,7 @@ app.get("/api/mhp_nhp_with_user_info/:usernameLatLon", (req, res) => {
             if (rows[0].Role === "mhp") {
               connection.query(
                 `SELECT 
+                  u.user_id,
                   u.Username,
                   u.avatar_url,
                   u.first_name,
@@ -308,6 +309,7 @@ app.get("/api/mhp_nhp_with_user_info/:usernameLatLon", (req, res) => {
             } else if (rows[0].Role === "nmhp") {
               connection.query(
                 `SELECT 
+                  u.user_id,
                   u.Username,
                   u.avatar_url,
                   u.first_name,
@@ -582,6 +584,8 @@ app.put("/api/private_rooms", upload.single("avatar_url"), (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err;
     const params = req.body;
+    params.member1_user_id = parseInt(params.member1_user_id, 10);
+    params.member2_user_id = parseInt(params.member2_user_id, 10);
 
     connection.query(
       "SELECT private_room_id, Title FROM private_rooms",
