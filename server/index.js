@@ -557,7 +557,12 @@ app.get("/api/rooms/:room_id", (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err;
     connection.query(
-      "SELECT * FROM messages WHERE room_id = ? ORDER BY message_id",
+      `SELECT *, u.firebase_avatar_url 
+      FROM messages m
+      INNER JOIN 
+        users u ON m.user_id = u.user_id
+      WHERE room_id = ? 
+      ORDER BY message_id`,
       [req.params.room_id],
       (err, rows) => {
         connection.release(); // return the connection to pool
