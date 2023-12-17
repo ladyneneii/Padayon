@@ -223,35 +223,147 @@ app.post("/api/mhps", upload.single("avatar_url"), (req, res) => {
   });
 });
 
+// Retrieve user full info with inputted username
+app.get("/api/mhp_nhp_with_user_info/:usernameLatLon", (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    const usernameLatLon = req.params.usernameLatLon.split(",");
+    const username = usernameLatLon[0];
+    const lat1 = usernameLatLon[1];
+    const lon1 = usernameLatLon[2];
+    // console.log(username, lat1, lon1);
+
+    connection.query(
+      `SELECT Role FROM users WHERE Username = ?`,
+      [username],
+      (err, rows) => {
+        connection.release();
+
+        if (!err) {
+          if (rows.length === 0) {
+            res.send("This user does not exist.");
+          } else {
+            if (rows[0].Role === "mhp") {
+              connection.query(
+                `SELECT 
+                  u.Username,
+                  u.avatar_url,
+                  u.first_name,
+                  u.middle_name,
+                  u.last_name,
+                  u.Age,
+                  u.Gender,
+                  u.Pronouns,
+                  u.Role,
+                  mhp.disorders_specializations,
+                  mhp.Fees,
+                  mhp.years_of_experience,
+                  mhp.Languages,
+                  mhp.min_age,
+                  mhp.max_age,
+                  mhp.Notes,
+                  mhp.available_days,
+                  mhp.available_hours,
+                  l.Address,
+                  l.Latitude,
+                  l.Longitude
+                FROM
+                  users u
+                INNER JOIN
+                  mental_health_professionals mhp ON u.user_id = mhp.user_id
+                INNER JOIN
+                  locations l ON mhp.location_id = l.location_id
+                WHERE Username = ?`,
+                [username],
+                (err, rows) => {
+                  connection.release();
+
+                  if (!err) {
+                    if (rows.length === 0) {
+                      res.send("This mhp does not exist.");
+                    } else {
+                      if (lat1 && lon1) {
+                        const distanceAway = getDistance(
+                          lat1,
+                          lon1,
+                          rows[0].Latitude,
+                          rows[0].Longitude
+                        );
+                        const updatedRows = [
+                          { ...rows[0], DistanceAway: distanceAway },
+                          ...rows.slice(1),
+                        ];
+
+                        res.send(updatedRows[0]);
+                      } else {
+                        // user did not allow permission, so just return the object without the DistanceAway key.
+                        res.send(rows[0]);
+                      }
+                    }
+                  } else {
+                    console.log(err);
+                  }
+                }
+              );
+            } else if (rows[0].Role === "nmhp") {
+              connection.query(
+                `SELECT 
+                  u.Username,
+                  u.avatar_url,
+                  u.first_name,
+                  u.middle_name,
+                  u.last_name,
+                  u.Age,
+                  u.Gender,
+                  u.Pronouns,
+                  u.Role
+                FROM
+                  users u
+                WHERE Username = ?`,
+                [username],
+                (err, rows) => {
+                  connection.release();
+
+                  if (!err) {
+                    if (rows.length === 0) {
+                      res.send("This nmhp does not exist.");
+                    } else {
+                      res.send(rows[0]);
+                    }
+                  } else {
+                    console.log(err);
+                  }
+                }
+              );
+            }
+          }
+        } else {
+          console.log(err);
+        }
+      }
+    );
+  });
+});
+
 // Get all mhps with user info
 app.get("/api/mhps_with_user_info", (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err;
     connection.query(
-      `SELECT u.Username,
+      `SELECT 
+        u.Username,
         u.avatar_url,
         u.first_name,
         u.middle_name,
         u.last_name,
-        u.Age,
-        u.Gender,
-        u.Pronouns,
         mhp.disorders_specializations,
-        mhp.Fees,
-        mhp.years_of_experience,
-        mhp.Languages,
-        mhp.min_age,
-        mhp.max_age,
-        mhp.Notes,
-        mhp.available_days,
-        mhp.available_hours,
-        l.Address,
-        l.Latitude,
-        l.Longitude
       FROM 
         users u 
       INNER JOIN 
-        mental_health_professionals mhp ON u.user_id = mhp.user_id`,
+        mental_health_professionals mhp ON u.user_id = mhp.user_id
+      INNER JOIN
+        locations l ON mhp.location_id = l.location_id
+      WHERE mhp.location_id IS NOT NULL`,
       (err, rows) => {
         connection.release(); // return the connection to pool
 
@@ -300,19 +412,7 @@ app.get("/api/mhps_with_user_info_ordered/:latLon", (req, res) => {
         u.first_name,
         u.middle_name,
         u.last_name,
-        u.Age,
-        u.Gender,
-        u.Pronouns,
         mhp.disorders_specializations,
-        mhp.Fees,
-        mhp.years_of_experience,
-        mhp.Languages,
-        mhp.min_age,
-        mhp.max_age,
-        mhp.Notes,
-        mhp.available_days,
-        mhp.available_hours,
-        l.Address,
         l.Latitude,
         l.Longitude
       FROM
@@ -345,7 +445,7 @@ app.get("/api/mhps_with_user_info_ordered/:latLon", (req, res) => {
               (a, b) => a.DistanceAway.metersAway - b.DistanceAway.metersAway
             );
 
-            res.send(resultsWithDistance);
+            res.send(sortedResults);
           }
         } else {
           console.log(err);
