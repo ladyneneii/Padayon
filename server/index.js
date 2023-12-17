@@ -577,6 +577,56 @@ app.get("/api/rooms/:room_id", (req, res) => {
   });
 });
 
+// Add a private room
+app.put("/api/private_rooms", upload.single("avatar_url"), (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    const params = req.body;
+
+    connection.query(
+      "SELECT private_room_id, Title FROM private_rooms",
+      (err, rows) => {
+        connection.release();
+
+        if (!err) {
+          const matchingRooms = rows.filter((row) => {
+            const title = row.Title || ""; // Ensure title is a string
+            return (
+              title.includes(params.Member1) && title.includes(params.Member2)
+            );
+          });
+
+          if (matchingRooms.length > 0) {
+            console.log("Private room already exists.");
+            const { private_room_id } = rows[0];
+            res.send(private_room_id.toString());
+          } else {
+            // add private room to database
+            connection.query(
+              "INSERT INTO private_rooms SET ?",
+              params,
+              (err, rows) => {
+                connection.release();
+
+                if (!err) {
+                  console.log("Added private room to database.");
+                  res.json(rows.insertId);
+                } else {
+                  console.log(err);
+                  res.status(500).json({ error: "Internal Server Error" });
+                }
+              }
+            );
+          }
+        } else {
+          console.log(err);
+          res.status(500).json({ error: "Internal Server Error" });
+        }
+      }
+    );
+  });
+});
+
 // Send user_id and location whether null or existing
 app.get("/api/location_check/:user_id", (req, res) => {
   pool.getConnection((err, connection) => {
