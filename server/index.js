@@ -68,6 +68,35 @@ io.on("connection", (socket) => {
     });
   });
 
+  socket.on("join_private_room", (private_room_id) => {
+    socket.join(private_room_id);
+    console.log(`User with ID: ${socket.id} joined room: ${private_room_id}`);
+  });
+
+  socket.on("send_private_message", (privateMessageData) => {
+    console.log(privateMessageData);
+
+    // add message to database
+    pool.getConnection((err, connection) => {
+      if (err) throw err;
+      connection.query(
+        "INSERT INTO private_messages SET ?",
+        privateMessageData,
+        (err, rows) => {
+          connection.release(); // return the connection to pool
+
+          if (!err) {
+            console.log(`Message has been added.`);
+            // .to(room_id) means only the users in the same private room id can interact with each other. private_room_id works because it is the basis in socket.join()
+            socket.to(privateMessageData.private_room_id).emit("receive_private_message", privateMessageData);
+          } else {
+            console.log(err);
+          }
+        }
+      );
+    });
+  });
+
   socket.on("disconnect", () => {
     console.log("User disconnected", socket.id);
   });
@@ -666,6 +695,31 @@ app.put("/api/private_rooms", upload.single("avatar_url"), (req, res) => {
         } else {
           console.log(err);
           res.status(500).json({ error: "Internal Server Error" });
+        }
+      }
+    );
+  });
+});
+
+// Get all messages in a room_id
+app.get("/api/private_messages/:private_room_id", (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    connection.query(
+      `SELECT pm.*, u.firebase_avatar_url 
+      FROM private_messages pm
+      INNER JOIN 
+        users u ON pm.user_id = u.user_id
+      WHERE private_room_id = ? 
+      ORDER BY private_message_id`,
+      [req.params.private_room_id],
+      (err, rows) => {
+        connection.release(); // return the connection to pool
+
+        if (!err) {
+          res.send(rows);
+        } else {
+          console.log(err);
         }
       }
     );
