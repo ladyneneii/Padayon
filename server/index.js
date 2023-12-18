@@ -277,7 +277,7 @@ app.get("/api/mhp_nhp_with_user_info/:usernameLatLon", (req, res) => {
                 `SELECT 
                   u.user_id,
                   u.Username,
-                  u.avatar_url,
+                  u.firebase_avatar_url,
                   u.first_name,
                   u.middle_name,
                   u.last_name,
@@ -340,7 +340,7 @@ app.get("/api/mhp_nhp_with_user_info/:usernameLatLon", (req, res) => {
                 `SELECT 
                   u.user_id,
                   u.Username,
-                  u.avatar_url,
+                  u.firebase_avatar_url,
                   u.first_name,
                   u.middle_name,
                   u.last_name,
@@ -383,7 +383,7 @@ app.get("/api/mhps_with_user_info", (req, res) => {
     connection.query(
       `SELECT 
         u.Username,
-        u.avatar_url,
+        u.firebase_avatar_url,
         u.first_name,
         u.middle_name,
         u.last_name,
@@ -439,7 +439,7 @@ app.get("/api/mhps_with_user_info_ordered/:latLon", (req, res) => {
     connection.query(
       `SELECT
         u.Username,
-        u.avatar_url,
+        u.firebase_avatar_url,
         u.first_name,
         u.middle_name,
         u.last_name,
@@ -944,7 +944,19 @@ app.get("/api/posts", (req, res) => {
 
     // get the root posts
     connection.query(
-      "SELECT * FROM posts WHERE State != ? AND post_reply_id IS NULL ORDER BY post_id DESC",
+      `SELECT 
+        p.*, u.firebase_avatar_url 
+      FROM 
+        posts p
+      INNER JOIN
+        users u 
+      ON 
+        p.user_id = u.user_id
+      WHERE 
+        p.State != ? 
+        AND post_reply_id IS NULL 
+      ORDER BY 
+        post_id DESC`,
       [State],
       (err, rows) => {
         connection.release();
@@ -972,7 +984,16 @@ function getOrderedPosts(res, connection, ordered_rows, rows, callback) {
 
         // Get the first level replies
         connection.query(
-          "SELECT * FROM posts WHERE post_reply_id = ? AND State != ?",
+          `SELECT p.*, u.firebase_avatar_url
+          FROM 
+            posts p
+          INNER JOIN
+            users u 
+          ON 
+            p.user_id = u.user_id
+          WHERE 
+            p.post_reply_id = ? 
+            AND p.State != ?`,
           [post_id, State],
           (err, replies) => {
             if (!err) {
