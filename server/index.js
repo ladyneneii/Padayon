@@ -579,6 +579,47 @@ app.get("/api/rooms/:room_id", (req, res) => {
   });
 });
 
+// Get all private rooms co-owned by user_id
+app.get("/api/private_rooms/:user_id", (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    const user_id = req.params.user_id;
+
+    connection.query(
+      `SELECT 
+        pr.*, 
+        CASE 
+          WHEN pr.member1_user_id = ? THEN u2.firebase_avatar_url
+          WHEN pr.member2_user_id = ? THEN u1.firebase_avatar_url
+        END AS avatar_url
+      FROM 
+        private_rooms pr
+      LEFT JOIN 
+        users u1 
+      ON 
+        pr.member1_user_id = u1.user_id
+      LEFT JOIN 
+        users u2 
+      ON 
+        pr.member2_user_id = u2.user_id
+      WHERE 
+        pr.member1_user_id = ? OR pr.member2_user_id = ?
+      ORDER BY 
+        private_room_id`,
+      [user_id, user_id, user_id, user_id],
+      (err, rows) => {
+        connection.release();
+
+        if (!err) {
+          res.send(rows);
+        } else {
+          console.log(err);
+        }
+      }
+    );
+  });
+});
+
 // Add a private room
 app.put("/api/private_rooms", upload.single("avatar_url"), (req, res) => {
   pool.getConnection((err, connection) => {
